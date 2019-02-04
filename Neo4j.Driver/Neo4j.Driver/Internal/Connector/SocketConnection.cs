@@ -44,7 +44,7 @@ namespace Neo4j.Driver.Internal.Connector
         private string _id;
 
         public SocketConnection(Uri uri, ConnectionSettings connectionSettings, BufferSettings bufferSettings,
-            IConnectionListener metricsListener = null, IDriverLogger logger = null)
+            IConnectionPoolListener metricsListener = null, IDriverLogger logger = null)
         {
             _id = $"conn-{UniqueIdGenerator.GetId()}";
             _logger = new PrefixLogger(logger, FormatPrefix(_id));

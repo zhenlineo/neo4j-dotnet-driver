@@ -126,7 +126,7 @@ namespace Neo4j.Driver.Internal.Connector
         public ITimer LifetimeTimer { get; }
     }
 
-    internal class StopwatchBasedTimer : ITimer
+    internal class StopwatchBasedTimer : ITimer // TODO change to use the global stopwatch
     {
         private readonly Stopwatch _stopwatch;
         public StopwatchBasedTimer()

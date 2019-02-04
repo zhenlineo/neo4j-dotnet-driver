@@ -41,11 +41,11 @@ namespace Neo4j.Driver.Internal.Connector
         private int _closedMarker = -1;
 
         private readonly IDriverLogger _logger;
-        private readonly IConnectionListener _connMetricsListener;
+        private readonly IConnectionPoolListener _connMetricsListener;
         private readonly IListenerEvent _connEvent;
 
         public SocketClient(Uri uri, SocketSettings socketSettings, BufferSettings bufferSettings,
-            IConnectionListener connMetricsListener = null, IDriverLogger logger = null, ITcpSocketClient socketClient = null)
+            IConnectionPoolListener connMetricsListener = null, IDriverLogger logger = null, ITcpSocketClient socketClient = null)
         {
             _uri = uri;
             _logger = logger;
@@ -55,7 +55,7 @@ namespace Neo4j.Driver.Internal.Connector
             _connMetricsListener = connMetricsListener;
             if (_connMetricsListener != null)
             {
-                _connEvent = new SimpleTimerEvent();
+                _connEvent = new SimpleTimerEvent(Driver);
             }
         }
 
@@ -72,12 +72,12 @@ namespace Neo4j.Driver.Internal.Connector
 
         public IBoltProtocol Connect()
         {
-            _connMetricsListener?.ConnectionConnecting(_connEvent);
+            _connMetricsListener?.BeforeCreating(_connEvent);
             _tcpSocketClient.Connect(_uri);
 
             SetOpened();
             _logger?.Debug($"~~ [CONNECT] {_uri}");
-            _connMetricsListener?.ConnectionConnected(_connEvent);
+            _connMetricsListener?.AfterCreated(_connEvent);
 
             var version = DoHandshake();
             return SelectBoltProtocol(version);
@@ -87,7 +87,7 @@ namespace Neo4j.Driver.Internal.Connector
         {
             TaskCompletionSource<IBoltProtocol> tcs = new TaskCompletionSource<IBoltProtocol>();
 
-            _connMetricsListener?.ConnectionConnecting(_connEvent);
+            _connMetricsListener?.BeforeCreating(_connEvent);
             _tcpSocketClient.ConnectAsync(_uri)
                 .ContinueWith(t =>
                     {
@@ -103,7 +103,7 @@ namespace Neo4j.Driver.Internal.Connector
                         {
                             SetOpened();
                             _logger?.Debug($"~~ [CONNECT] {_uri}");
-                            _connMetricsListener?.ConnectionConnected(_connEvent);
+                            _connMetricsListener?.AfterCreated(_connEvent);
                             return DoHandshakeAsync();
                         }
                         return Task.FromResult(-1);

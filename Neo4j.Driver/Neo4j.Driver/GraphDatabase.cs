@@ -16,6 +16,7 @@
 // limitations under the License.
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using Neo4j.Driver.Internal;
 using Neo4j.Driver.Internal.Metrics;
 using Neo4j.Driver.Internal.Routing;
@@ -28,6 +29,7 @@ namespace Neo4j.Driver
     /// </summary>
     public static class GraphDatabase
     {
+        private static readonly Stopwatch _timer = Stopwatch.StartNew();
         internal const int DefaultBoltPort = 7687;
 
         /// <summary>
@@ -237,6 +239,11 @@ namespace Neo4j.Driver
             }
 
             return new Internal.Driver(parsedUri, connectionProvider, retryLogic, logger, metrics);
+        }
+
+        internal static Stopwatch Timer()
+        {
+            return _timer;
         }
 
         private static void EnsureNoRoutingContext(Uri uri, IDictionary<string, string> routingContext)

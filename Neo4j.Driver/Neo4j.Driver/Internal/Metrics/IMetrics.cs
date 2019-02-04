@@ -45,33 +45,9 @@ namespace Neo4j.Driver.Internal.Metrics
         /// </summary>
         IDictionary<string, IConnectionPoolMetrics> ConnectionPoolMetrics { get; }
 
-        /// <summary>
-        /// The connection metrics.
-        /// </summary>
-        IDictionary<string, IConnectionMetrics> ConnectionMetrics { get; }
-
         IConnectionListener CreateConnectionListener(Uri uri);
 
         IConnectionPoolListener CreateConnectionPoolListener(Uri uri, IConnectionPool pool);
-    }
-
-    internal interface IConnectionMetrics
-    {
-        /// <summary>
-        /// The unique name of this metrics, used as an unique identifier among all <see cref="IConnectionMetrics"/> instances.
-        /// </summary>
-        string UniqueName { get; }
-
-        /// <summary>
-        /// Records the distribution of connection establish time in "ticks" where a tick equals to 100 ns.
-        /// </summary>
-        IHistogram ConnectionTimeHistogram { get; }
-
-        /// <summary>
-        /// Records the distribution of the time that connections are borrowed out of the pool.
-        /// The value are recorded in "ticks" where a tick equals to 100 ns.
-        /// </summary>
-        IHistogram InUseTimeHistogram { get; }
     }
 
     /// <summary>
@@ -82,7 +58,7 @@ namespace Neo4j.Driver.Internal.Metrics
         /// <summary>
         /// The unique name of this metrics, used as an unique identifier among all <see cref="IConnectionPoolMetrics"/> instances.
         /// </summary>
-        string UniqueName { get; }
+        string Id { get; }
 
         /// <summary>
         /// The pool status
@@ -141,49 +117,37 @@ namespace Neo4j.Driver.Internal.Metrics
         long TimedOutToAcquire { get; }
 
         /// <summary>
-        /// The histogram of the delays to acquire a connection from the pool in "ticks" where a tick equals to 100 ns.
-        /// The delays could either be the time to create a new connection or the time waiting for a connection available from the pool.
+        /// The total acquisition time in milliseconds of all connection acquisition requests since the pool is created.
+        /// See <see cref="Acquired"/> for the total amount of connections that have been acquired since the pool is created.
         /// </summary>
-        IHistogram AcquisitionTimeHistogram { get; }
+        long TotalAcquisitionTime { get; }
+
+        /// <summary>
+        /// The total time in milliseconds spent to establishing new socket connections since the pool is created.
+        /// See <see cref="Created"/> for all the amount of connections that have been created since the pool is created.
+        /// </summary>
+        long TotalConnectionTime { get; }
+
+        /// <summary>
+        /// The total time in milliseconds connections are borrowed out of the pool,
+        /// such as the time spent in user's application code to run cypher queries.
+        /// </summary>
+        long TotalInUseTime { get; }
+
+        /// <summary>
+        /// The total amount of connections that are borrowed outside the pool since the pool is created.
+        /// </summary>
+        long TotalInUseCount { get; }
+
+        /// <summary>
+        /// Returns a snapshot of this connection pool metrics.
+        /// </summary>
+        /// <returns>Returns a snapshot of this connection pool metrics.</returns>
+        IMetrics Snapshot();
     }
 
     internal enum PoolStatus
     {
         Open, Closed, Inactive
-    }
-
-    /// <summary>
-    /// A very simple histogram interface
-    /// </summary>
-    internal interface IHistogram
-    {
-        /// <summary>
-        /// Max value
-        /// </summary>
-        long Max { get; }
-        /// <summary>
-        /// Mean value. If there is no values recorded in this histogram, a <see cref="double.NaN"/> will be return
-        /// </summary>
-        double Mean { get; }
-        /// <summary>
-        /// The standard deviation.
-        /// If there is no values recorded in this histogram, a <see cref="double.NaN"/> will be return.
-        /// </summary>
-        double StdDeviation { get; }
-        /// <summary>
-        /// Total number of recorded values
-        /// </summary>
-        long TotalCount { get; }
-        /// <summary>
-        /// Get the value at a given percentile.
-        /// Throws <see cref="ArgumentOutOfRangeException"/> when querying value on an empty histogram.
-        /// </summary>
-        /// <param name="percentile">The given percentile</param>
-        /// <returns>The value at a given percentile</returns>
-        long GetValueAtPercentile(double percentile);
-        /// <summary>
-        /// Reset the histogram content
-        /// </summary>
-        void Reset();
     }
 }

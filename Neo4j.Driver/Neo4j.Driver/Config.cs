@@ -263,6 +263,8 @@ namespace Neo4j.Driver
         /// </summary>
         internal IMetricsFactory MetricsFactory { get; set; }
 
+        public bool DriverMetricsEnabled { get; set; } = false;
+
         /// <summary>
         /// Gets or sets the default read buffer size which the driver allocates for its internal buffers.
         /// </summary>
@@ -424,6 +426,12 @@ namespace Neo4j.Driver
             public IConfigBuilder WithMaxWriteBufferSize(int maxWriteBufferSize)
             {
                 _config.MaxWriteBufferSize = maxWriteBufferSize;
+                return this;
+            }
+
+            public IConfigBuilder WithDriverMetricsEnabled(bool enable)
+            {
+                _config.DriverMetricsEnabled = enable;
                 return this;
             }
         }
@@ -625,5 +633,13 @@ namespace Neo4j.Driver
         /// consider increasing this size to a reasonable amount depending on your data.</remarks>
         IConfigBuilder WithMaxWriteBufferSize(int maxWriteBufferSize);
 
+        /// <summary>
+        /// Setting this option to true will enable driver level metrics.
+        /// Then the metrics can be obtained via <see cref="IDriver.Metrics"/> after a driver is created.
+        /// By default, the driver metrics is disabled.
+        /// </summary>
+        /// <param name="enable">True to enable driver metrics, false to disable.</param>
+        /// <returns>An <see cref="IConfigBuilder"/> instance for further configuration options.</returns>
+        IConfigBuilder WithDriverMetricsEnabled(bool enable);
     }
 }

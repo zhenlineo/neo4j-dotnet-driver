@@ -22,14 +22,47 @@ namespace Neo4j.Driver.Internal.Metrics
 {
     internal interface IConnectionPoolListener: IDisposable
     {
-        void ConnectionCreating();
-        void ConnectionCreated();
-        void ConnectionFailedToCreate();
-        void ConnectionClosing();
-        void ConnectionClosed();
-        void PoolAcquiring(IListenerEvent listenerEvent);
-        void PoolAcquired(IListenerEvent listenerEvent);
-        void PoolFailedToAcquire();
-        void PoolTimedOutToAcquire();
+        void BeforeCreating(IListenerEvent connEvent);
+        void AfterCreated(IListenerEvent connEvent);
+        void AfterFailedToCreate();
+        void BeforeClosing();
+        void AfterClosed();
+        void BeforeAcquiring(IListenerEvent acquireEvent);
+        void AfterAcquired(IListenerEvent acquireEvent);
+        void AfterFailedToAcquire();
+        void AfterTimedOutToAcquire();
+
+        void ConnectionAcquired(IListenerEvent inUseEvent);
+        void ConnectionReleased(IListenerEvent inUseEvent);
+    }
+
+    internal interface IListenerEvent
+    {
+        void Start();
+        long GetElapsed();
+    }
+
+    /// <summary>
+    /// A very simple impl of <see cref="IListenerEvent"/> without much error checks.
+    /// </summary>
+    internal class SimpleTimerEvent : IListenerEvent
+    {
+        private readonly Stopwatch _timer;
+        private long _startTime;
+
+        public SimpleTimerEvent(Stopwatch timer)
+        {
+            _timer = timer;
+        }
+
+        public void Start()
+        {
+            _startTime = _timer.ElapsedMilliseconds;
+        }
+
+        public long GetElapsed()
+        {
+            return _timer.ElapsedMilliseconds - _startTime;
+        }
     }
 }

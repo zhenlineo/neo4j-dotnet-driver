@@ -33,6 +33,11 @@ namespace Neo4j.Driver.Internal.Metrics
         private long _acquired;
         private long _timedOutToAcquire;
 
+        private long _totalAcquisitionTime;
+        private long _totalConnectionTime;
+        private long _totalInUseTime;
+        private long _totalInUseCount;
+
         public int Creating => _creating;
         public long Created => Interlocked.Read(ref _created);
         public long FailedToCreate => Interlocked.Read(ref _failedToCreate);
@@ -43,73 +48,90 @@ namespace Neo4j.Driver.Internal.Metrics
         public int Acquiring => _acquiring;
         public long Acquired => Interlocked.Read(ref _acquired);
         public long TimedOutToAcquire => Interlocked.Read(ref _timedOutToAcquire);
+        public long TotalAcquisitionTime => Interlocked.Read(ref _totalAcquisitionTime);
+        public long TotalConnectionTime => Interlocked.Read(ref _totalConnectionTime);
+        public long TotalInUseTime => Interlocked.Read(ref _totalInUseTime);
+        public long TotalInUseCount => Interlocked.Read(ref _totalInUseCount);
+        public IMetrics Snapshot()
+        {
+            throw new NotImplementedException();
+        }
 
-        public string UniqueName { get; }
+        public string Id { get; }
 
         private IConnectionPool _pool;
         public int InUse => _pool?.NumberOfInUseConnections ?? 0;
         public int Idle => _pool?.NumberOfIdleConnections ?? 0;
         public PoolStatus PoolStatus => _pool?.Status.Code ?? PoolStatus.Closed;
 
-        private readonly Histogram _histogram;
-        public IHistogram AcquisitionTimeHistogram => _histogram.Snapshot();
-
-        public ConnectionPoolMetrics(Uri uri, IConnectionPool pool, TimeSpan connAcquisitionTimeout)
+        public ConnectionPoolMetrics(Uri uri, IConnectionPool pool)
         {
-            UniqueName = uri.ToString();
+            Id = uri.ToString();
             _pool = pool;
-            _histogram = new Histogram(connAcquisitionTimeout.Ticks);
         }
 
-        public void ConnectionCreating()
+        public void BeforeCreating(IListenerEvent connEvent)
         {
             Interlocked.Increment(ref _creating);
+            connEvent.Start();
         }
 
-        public void ConnectionCreated()
+        public void AfterCreated(IListenerEvent connEvent)
         {
-            Interlocked.Increment(ref _created);
             Interlocked.Decrement(ref _creating);
+            Interlocked.Increment(ref _created);
+            Interlocked.Add(ref _totalConnectionTime, connEvent.GetElapsed());
         }
 
-        public void ConnectionFailedToCreate()
+        public void AfterFailedToCreate()
         {
             Interlocked.Increment(ref _failedToCreate);
             Interlocked.Decrement(ref _creating);
         }
 
-        public void ConnectionClosing()
+        public void BeforeClosing()
         {
             Interlocked.Increment(ref _closing);
         }
 
-        public void ConnectionClosed()
+        public void AfterClosed()
         {
             Interlocked.Increment(ref _closed);
             Interlocked.Decrement(ref _closing);
         }
 
-        public void PoolAcquiring(IListenerEvent listenerEvent)
+        public void BeforeAcquiring(IListenerEvent acquireEvent)
         {
             Interlocked.Increment(ref _acquiring);
-            listenerEvent.Start();
+            acquireEvent.Start();
         }
 
-        public void PoolAcquired(IListenerEvent listenerEvent)
+        public void AfterAcquired(IListenerEvent acquireEvent)
         {
             Interlocked.Decrement(ref _acquiring);
             Interlocked.Increment(ref _acquired);
-            _histogram.RecordValue(listenerEvent.GetElapsed());
+            Interlocked.Add(ref _totalAcquisitionTime, acquireEvent.GetElapsed());
         }
 
-        public void PoolFailedToAcquire()
+        public void AfterFailedToAcquire()
         {
             Interlocked.Decrement(ref _acquiring);
         }
 
-        public void PoolTimedOutToAcquire()
+        public void AfterTimedOutToAcquire()
         {
             Interlocked.Increment(ref _timedOutToAcquire);
+        }
+
+        public void ConnectionAcquired(IListenerEvent inUseEvent)
+        {
+            inUseEvent.Start();
+        }
+
+        public void ConnectionReleased(IListenerEvent inUseEvent)
+        {
+            Interlocked.Increment(ref _totalInUseCount);
+            Interlocked.Add(ref _totalInUseTime, inUseEvent.GetElapsed());
         }
 
         public void Dispose()

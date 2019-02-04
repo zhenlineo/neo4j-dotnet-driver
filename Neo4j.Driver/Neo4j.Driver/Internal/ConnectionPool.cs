@@ -17,6 +17,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Neo4j.Driver.Internal.Connector;
@@ -73,6 +74,7 @@ namespace Neo4j.Driver.Internal
         private readonly string _id;
 
         private readonly IDriverLogger _logger;
+        private readonly Stopwatch _timer;
 
         public ConnectionPoolStatus Status
         {
@@ -131,13 +133,13 @@ namespace Neo4j.Driver.Internal
                 if (conn != null)
                 {
                     conn.Init();
-                    _poolMetricsListener?.ConnectionCreated();
+                    _poolMetricsListener?.AfterCreated();
                     return conn;
                 }
             }
             catch
             {
-                _poolMetricsListener?.ConnectionFailedToCreate();
+                _poolMetricsListener?.AfterFailedToCreate();
 
                 // shut down and clean all the resources of the connection if failed to establish
                 DestroyConnection(conn);
@@ -156,13 +158,13 @@ namespace Neo4j.Driver.Internal
                 if (conn != null)
                 {
                     await conn.InitAsync().ConfigureAwait(false);
-                    _poolMetricsListener?.ConnectionCreated();
+                    _poolMetricsListener?.AfterCreated();
                     return conn;
                 }
             }
             catch
             {
-                _poolMetricsListener?.ConnectionFailedToCreate();
+                _poolMetricsListener?.AfterFailedToCreate();
 
                 // shut down and clean all the resources of the connection if failed to establish
                 await DestroyConnectionAsync(conn).ConfigureAwait(false);
@@ -176,7 +178,7 @@ namespace Neo4j.Driver.Internal
         {
             if (TryIncrementPoolSize())
             {
-                _poolMetricsListener?.ConnectionCreating();
+                _poolMetricsListener?.BeforeCreating();
 
                 return _connectionFactory.Create(_uri, this, _connectionMetricsListener);
             }
@@ -191,14 +193,14 @@ namespace Neo4j.Driver.Internal
                 return;
             }
 
-            _poolMetricsListener?.ConnectionClosing();
+            _poolMetricsListener?.BeforeClosing();
             try
             {
                 conn.Destroy();
             }
             finally
             {
-                _poolMetricsListener?.ConnectionClosed();
+                _poolMetricsListener?.AfterClosed();
             }
         }
 
@@ -210,14 +212,14 @@ namespace Neo4j.Driver.Internal
                 return;
             }
 
-            _poolMetricsListener?.ConnectionClosing();
+            _poolMetricsListener?.BeforeClosing();
             try
             {
                 await conn.DestroyAsync().ConfigureAwait(false);
             }
             finally
             {
-                _poolMetricsListener?.ConnectionClosed();
+                _poolMetricsListener?.AfterClosed();
             }
         }
 
@@ -245,17 +247,17 @@ namespace Neo4j.Driver.Internal
 
         public IConnection Acquire(AccessMode mode)
         {
-            var acquireEvent = new SimpleTimerEvent();
-            _poolMetricsListener?.PoolAcquiring(acquireEvent);
+            var acquireEvent = new SimpleTimerEvent(_timer);
+            _poolMetricsListener?.BeforeAcquiring(acquireEvent);
             try
             {
                 var conn = Acquire();
-                _poolMetricsListener?.PoolAcquired(acquireEvent);
+                _poolMetricsListener?.AfterAcquired(acquireEvent);
                 return conn;
             }
             catch
             {
-                _poolMetricsListener?.PoolFailedToAcquire();
+                _poolMetricsListener?.AfterFailedToAcquire();
                 throw;
             }
         }
@@ -346,26 +348,26 @@ namespace Neo4j.Driver.Internal
 
         private void ThrowConnectionAcquisitionTimedOutException(OperationCanceledException ex=null)
         {
-            _poolMetricsListener?.PoolTimedOutToAcquire();
+            _poolMetricsListener?.AfterTimedOutToAcquire();
             throw new ClientException(
                 $"Failed to obtain a connection from pool within {_connAcquisitionTimeout}", ex);
         }
 
         public Task<IConnection> AcquireAsync(AccessMode mode)
         {
-            var acquireEvent = new SimpleTimerEvent();
-            _poolMetricsListener?.PoolAcquiring(acquireEvent);
+            var acquireEvent = new SimpleTimerEvent(_timer);
+            _poolMetricsListener?.BeforeAcquiring(acquireEvent);
             var timeOutTokenSource = new CancellationTokenSource(_connAcquisitionTimeout);
             var task = AcquireAsync(timeOutTokenSource.Token).ContinueWith(t =>
             {
                 timeOutTokenSource.Dispose();
                 if (t.Status == TaskStatus.RanToCompletion)
                 {
-                    _poolMetricsListener?.PoolAcquired(acquireEvent);
+                    _poolMetricsListener?.AfterAcquired(acquireEvent);
                 }
                 else
                 {
-                    _poolMetricsListener?.PoolFailedToAcquire();
+                    _poolMetricsListener?.AfterFailedToAcquire();
                 }
                 return t;
             }, TaskContinuationOptions.ExecuteSynchronously).Unwrap();

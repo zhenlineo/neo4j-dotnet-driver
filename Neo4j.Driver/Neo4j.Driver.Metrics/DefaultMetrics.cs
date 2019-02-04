@@ -26,21 +26,18 @@ namespace Neo4j.Driver.Internal.Metrics
     internal class DefaultMetrics : IMetrics
     {
         private readonly ConcurrentDictionary<string, IConnectionPoolMetrics> _poolMetrics;
-        private readonly ConcurrentDictionary<string, IConnectionMetrics> _connMetrics;
         private readonly Config _config;
 
         public DefaultMetrics(Config config)
         {
             _config = config;
             _poolMetrics = new ConcurrentDictionary<string, IConnectionPoolMetrics>();
-            _connMetrics = new ConcurrentDictionary<string, IConnectionMetrics>();
         }
 
         public IConnectionPoolListener CreateConnectionPoolListener(Uri poolUri, IConnectionPool pool)
         {
-            var acquisitionTimeout = _config.ConnectionAcquisitionTimeout;
-            var poolMetrics = new ConnectionPoolMetrics(poolUri, pool, acquisitionTimeout);
-            var key = poolMetrics.UniqueName;
+            var poolMetrics = new ConnectionPoolMetrics(poolUri, pool);
+            var key = poolMetrics.Id;
 
             return (IConnectionPoolListener) _poolMetrics.GetOrAdd(key, poolMetrics);
         }
@@ -55,6 +52,5 @@ namespace Neo4j.Driver.Internal.Metrics
         }
 
         public IDictionary<string, IConnectionPoolMetrics> ConnectionPoolMetrics => new ReadOnlyDictionary<string, IConnectionPoolMetrics>(_poolMetrics);
-        public IDictionary<string, IConnectionMetrics> ConnectionMetrics => new ReadOnlyDictionary<string, IConnectionMetrics>(_connMetrics);
     }
 }

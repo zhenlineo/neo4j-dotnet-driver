@@ -103,7 +103,6 @@ namespace Neo4j.Driver
         /// </summary>
         /// <returns>The close task.</returns>
         Task CloseAsync();
-
     }
     /// <summary>
     /// Used by driver to route a cypher statement to a write server or a read server.
